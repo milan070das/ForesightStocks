@@ -1,40 +1,44 @@
-# 📈 ForeSight Stocks
+# 📈 ForesightStocks — AI-Powered Stock Market Forecasting App
 
-Welcome to **ForeSight Stocks** – a powerful and beautiful web app built with **Streamlit**, **Prophet**, and **Plotly** to forecast stock prices using historical data. Simply enter a stock symbol and watch future trends unfold!
-
-## 🌟 Features
-
-- 📊 **Interactive visualizations** of historical stock prices.
-- 🔮 **Forecasting** using Facebook’s Prophet algorithm.
-- 📆 Predict stock prices **up to 10 years** into the future.
-- 📈 View **forecast components** like trends and seasonality.
-- 💡 Beautiful and responsive UI with **background image support**.
-- 🧠 Auto-validation of stock symbols.
-- 🎨 Fully animated and styled using **Plotly**.
+**ForesightStocks** is an intelligent web application that uses deep learning models and time series analysis to predict stock prices for selected companies. It allows users to interactively choose a stock, view its historical data, visualize future price trends, and receive predictions with compelling graphs and metrics.
 
 ---
 
-## 🖼 Background Preview
+## 🚀 Features
 
-A stylish background image makes the user interface more engaging.
-
----
-
-## 🧪 Tech Stack
-
-| Tool        | Purpose                          |
-|-------------|----------------------------------|
-| Streamlit   | Web app framework                |
-| yFinance    | Fetch stock market data          |
-| Prophet     | Time series forecasting          |
-| Plotly      | Interactive data visualizations  |
-| Python      | Core programming language        |
+- 📊 **Interactive Stock Selection** – Choose from a variety of popular stock tickers (e.g., AAPL, TSLA, MSFT).
+- 📈 **Time Series Forecasting** – Predict future stock prices using LSTM-based deep learning models.
+- 📉 **Data Visualization** – Dynamic charts for historical and predicted stock data using Plotly.
+- 🧠 **AI Explanation Assistant** – Ask financial or AI-related queries via integrated Gemini-powered chatbot.
+- 📅 **Date Range Filtering** – Select custom date ranges to visualize stock trends.
+- 🌙 **Dark Mode UI (planned)** – Comfortable viewing experience for long sessions.
 
 ---
 
-## 🔧 Installation
+## 🛠️ Tech Stack
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/your-username/foresight-stocks.git
-   cd foresight-stocks
+| Layer          | Technology                           |
+|----------------|--------------------------------------|
+| Frontend       | Streamlit                            |
+| Backend        | Python                               |
+| ML Framework   | TensorFlow/Keras, Scikit-learn       |
+| Visualization  | Plotly, Matplotlib                   |
+| Data Source    | Yahoo Finance (via yfinance)         |
+| AI Assistant   | Google Gemini API (Generative AI)    |
+
+---
+
+## 📁 Folder Structure
+
+```plaintext
+ForesightStocks/
+├── app.py                         # Main Streamlit application
+├── model/
+│   └── stock_lstm_model.h5       # Pretrained LSTM model (or models per stock)
+├── utils/
+│   ├── data_loader.py            # Fetches stock data
+│   ├── model_utils.py            # LSTM model logic
+│   └── plot_utils.py             # Graphs and visualizations
+├── requirements.txt              # List of dependencies
+├── README.md                     # Project documentation
+└── .gitignore

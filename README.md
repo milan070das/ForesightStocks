@@ -27,18 +27,3 @@
 | AI Assistant   | Google Gemini API (Generative AI)    |
 
 ---
-
-## 📁 Folder Structure
-
-```plaintext
-ForesightStocks/
-├── app.py                         # Main Streamlit application
-├── model/
-│   └── stock_lstm_model.h5       # Pretrained LSTM model (or models per stock)
-├── utils/
-│   ├── data_loader.py            # Fetches stock data
-│   ├── model_utils.py            # LSTM model logic
-│   └── plot_utils.py             # Graphs and visualizations
-├── requirements.txt              # List of dependencies
-├── README.md                     # Project documentation
-└── .gitignore

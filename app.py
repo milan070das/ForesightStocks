@@ -1,6 +1,7 @@
 import base64
 import streamlit as st
 from datetime import date
+import pandas as pd
 
 import yfinance as yf
 from prophet import Prophet
@@ -16,7 +17,6 @@ def get_img_as_base64(file):
 
 img=get_img_as_base64("background.jpg")
 
-
 page_bg_img=f"""
 <style>
 
@@ -31,14 +31,14 @@ background:rgba(0,0,0,0);
 </style>
 """
 st.markdown(page_bg_img,unsafe_allow_html=True)
+
 st.title("ForeSight Stocks")
 
 START = "2015-01-01"
 TODAY = date.today().strftime("%Y-%m-%d")
-# st.title("Stock Prediction App")
-# stocks = ("AAPL", "GOOG", "MSFT", "GME","^N225","BTC-USD","AMZN")
-# selected_stocks = st.selectbox("Select dataset for prediction", stocks)
-selected_stocks = st.text_input("Enter stock symbol for prediction")
+
+selected_stocks = st.text_input("Enter stock symbol or company name for prediction")
+copyselected_stocks=selected_stocks
 st.subheader("Years of prediction:")
 n_years = st.slider("",1, 10)
 period = n_years * 365
@@ -49,91 +49,93 @@ def load_data(ticker):
     data.reset_index(inplace=True)
     return data
 
-# data_load_state = st.text("Load data...")
-# data = load_data(selected_stocks)
-# data_load_state.text("Load data...Done!")
 data_load_state = st.text("Validating stock symbol...")
 
 # Validate stock symbol
-stock_exists = False
-while not stock_exists:
-    try:
+try:
+    stock_exists = False
+    while not stock_exists:
+        df = pd.read_csv("NAMES.csv") 
+        selected_stocks=selected_stocks.upper()
+        df = df[df['NAME'].str.contains(selected_stocks)] 
+        try:
+            selected_stocks = df.iloc[0,1]
+        except:
+            selected_stocks = copyselected_stocks.upper()
+        print(selected_stocks)
         data = load_data(selected_stocks)
         stock_exists = True
-    except:
-        selected_stocks = st.text_input("Invalid stock symbol. Enter a valid stock symbol for prediction", value=selected_stocks)
-        st.write("Please enter a valid stock symbol to continue.")
+        
 
-data_load_state.text("Load data...Done!")
+    if not data.empty:
+        data_load_state.text("Load data...Done!")
+        st.subheader('Raw data')
+        st.write(data.tail())
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['Open'], name='stock_open'))
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['Close'], name='stock_close'))
+        fig.update_layout(title="Time Series Data", xaxis_rangeslider_visible=True)
+        st.plotly_chart(fig)
+    else:
+        data_load_state.text(" Failed to Load Data :(")
+        st.write("Invalid stock symbol. Enter a valid stock symbol for prediction")
 
-st.subheader('Raw data')
-st.write(data.tail())
+    # Forecasting
+    df_train = data[['Date', 'Close']]
+    df_train = df_train.rename(columns={"Date": "ds", "Close": "y"})
 
-def plot_raw_data():
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=data['Date'], y=data['Open'], name='stock_open'))
-    fig.add_trace(go.Scatter(x=data['Date'], y=data['Close'], name='stock_close'))
-    fig.update_layout(title="Time Series Data", xaxis_rangeslider_visible=True)
-    st.plotly_chart(fig)
+    m = Prophet()
+    m.fit(df_train)
+    future = m.make_future_dataframe(periods=period)
+    forecast = m.predict(future)
 
-plot_raw_data()
+    st.subheader('Forecast data')
+    st.write(forecast.tail())
 
-# Forecasting
-df_train = data[['Date', 'Close']]
-df_train = df_train.rename(columns={"Date": "ds", "Close": "y"})
 
-m = Prophet()
-m.fit(df_train)
-future = m.make_future_dataframe(periods=period)
-forecast = m.predict(future)
+    # Forecast data plot with traces
+    fig_forecast = go.Figure()
 
-st.subheader('Forecast data')
-st.write(forecast.tail())
+    # Add observed data trace
+    fig_forecast.add_trace(go.Scatter(x=df_train['ds'], y=df_train['y'], mode='markers', name='Observed Data'))
 
-# st.markdown("Forecast data")
-# ... (previous code remains the same)
+    # Add forecasted data trace
+    fig_forecast.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat'], mode='lines', name='Forecast'))
 
-# Forecast data plot with traces
-fig_forecast = go.Figure()
+    # Add upper and lower confidence interval traces
+    fig_forecast.add_trace(go.Scatter(
+        x=forecast['ds'],
+        y=forecast['yhat_upper'],
+        mode='lines',
+        line=dict(width=0),
+        showlegend=False,
+        fill='tonexty',
+        fillcolor='rgba(0,100,80,0.2)',
+        name='Upper CI'
+    ))
 
-# Add observed data trace
-fig_forecast.add_trace(go.Scatter(x=df_train['ds'], y=df_train['y'], mode='markers', name='Observed Data'))
+    fig_forecast.add_trace(go.Scatter(
+        x=forecast['ds'],
+        y=forecast['yhat_lower'],
+        mode='lines',
+        line=dict(width=0),
+        showlegend=False,
+        fill='tonexty',
+        fillcolor='rgba(0,100,80,0.2)',
+        name='Lower CI'
+    ))
 
-# Add forecasted data trace
-fig_forecast.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat'], mode='lines', name='Forecast'))
+    fig_forecast.update_layout(
+        title='Forecast Plot',
+        xaxis_title='Date',
+        yaxis_title='Close Price',
+        xaxis_rangeslider_visible=True
+    )
 
-# Add upper and lower confidence interval traces
-fig_forecast.add_trace(go.Scatter(
-    x=forecast['ds'],
-    y=forecast['yhat_upper'],
-    mode='lines',
-    line=dict(width=0),
-    showlegend=False,
-    fill='tonexty',
-    fillcolor='rgba(0,100,80,0.2)',
-    name='Upper CI'
-))
+    st.plotly_chart(fig_forecast)
 
-fig_forecast.add_trace(go.Scatter(
-    x=forecast['ds'],
-    y=forecast['yhat_lower'],
-    mode='lines',
-    line=dict(width=0),
-    showlegend=False,
-    fill='tonexty',
-    fillcolor='rgba(0,100,80,0.2)',
-    name='Lower CI'
-))
-
-fig_forecast.update_layout(
-    title='Forecast Plot',
-    xaxis_title='Date',
-    yaxis_title='Close Price',
-    xaxis_rangeslider_visible=True
-)
-
-st.plotly_chart(fig_forecast)
-
-st.subheader("Forecast components")
-fig2 = m.plot_components(forecast)
-st.write(fig2)
+    st.subheader("Forecast components")
+    fig2 = m.plot_components(forecast)
+    st.write(fig2)
+except:
+    st.write("Waiting for input")

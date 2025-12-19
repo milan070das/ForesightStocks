@@ -92,7 +92,7 @@ def make_prophet_train_df(data: pd.DataFrame) -> pd.DataFrame:
 
 
 # ---------------- App ----------------
-set_background("bg.png")
+set_background("background.jpg")
 st.title("ForeSight Stocks")
 
 with st.form("predict_form"):
@@ -201,3 +201,4 @@ st.plotly_chart(fig_forecast, use_container_width=True)
 # Prophet component plots (Matplotlib figure)
 st.subheader("Forecast components")
 st.pyplot(m.plot_components(forecast))
+

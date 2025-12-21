@@ -1,6 +1,13 @@
 streamlit
 yfinance
 prophet
-plotly
 pandas
 numpy
+scikit-learn
+xgboost
+shap
+plotly
+matplotlib
+seaborn
+pystan
+cmdstanpy

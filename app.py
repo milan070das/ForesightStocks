@@ -14,8 +14,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix
+# NEW: Import native sklearn interpretation tools
+from sklearn.inspection import permutation_importance, PartialDependenceDisplay
 import xgboost as xgb
-import shap
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -52,7 +53,7 @@ def format_inr(value: float) -> str:
             while len(rest) > 2:
                 indian = "," + rest[-2:] + indian
                 rest = rest[:-2]
-            indian = rest + indian
+                indian = rest + indian
             formatted = indian + "," + first + "." + dec_part
         return ("- " if negative else "") + "₹ " + formatted
     except Exception:
@@ -86,7 +87,7 @@ except:
 
 st.title("🎯 ForeSight Stocks - AI-Powered Investment Advisor")
 st.markdown(
-    "*Check stock price history, get a simple BUY/SELL suggestion, and see which factors influenced that suggestion (using SHAP).*"
+    "*Check stock price history, get a simple BUY/SELL suggestion, and see which factors influenced that suggestion.*"
 )
 
 # ==================== CONFIGURATION ====================
@@ -609,86 +610,80 @@ if selected_stocks:
                 )
                 st.metric("Overall view", profit_status)
 
-            # 4. SHAP ANALYSIS (BEGINNER-FRIENDLY TEXT)
+            # 4. EXPLAINABILITY (Replaced SHAP with Permutation Importance + PDP)
             st.markdown("---")
             st.subheader("🔬 Why did the model say BUY / SELL?")
 
             st.markdown(
                 """
-SHAP helps answer a simple question:
-
-> **For today's prediction, which factors pushed the model more towards BUY, and which pushed it towards SELL?**
-
-Think of it as a detailed score card:
-- Positive SHAP value → pushes prediction **towards price going up (BUY)**  
-- Negative SHAP value → pushes prediction **towards price going down (SELL)**
-"""
+                This section explains which factors drove the model's decision.
+                
+                **1. Top Factors:** Which features (indicators) mattered most overall.
+                **2. Factor Effects:** How specifically the top features change the model's view.
+                """
             )
 
-            with st.spinner("Calculating factor importance (SHAP values)..."):
-                # Use XGBoost model for SHAP
-                explainer = shap.TreeExplainer(xgb_model)
-                shap_values = explainer.shap_values(X_train_scaled[:500])
-
-                # ---- Summary Plot (which factors matter most overall) ----
-                st.markdown("#### Overall most important factors")
-                fig_shap_summary, ax = plt.subplots(figsize=(10, 6))
-                shap.summary_plot(
-                    shap_values,
-                    X_train_scaled[:500],
-                    feature_names=feature_columns,
-                    plot_type="bar",
-                    show=False,
+            with st.spinner("Calculating explainability using Permutation Importance & PDP..."):
+                
+                # A. Global Importance (Permutation Importance)
+                st.markdown("#### 1. Most Important Factors Overall")
+                st.caption("Higher score means shuffling this feature hurts model accuracy more (i.e., it's vital).")
+                
+                # Compute permutation importance using the test set
+                # n_repeats=5 is usually enough for a quick estimate
+                perm_importance = permutation_importance(
+                    xgb_model, X_test_scaled, y_test, 
+                    n_repeats=5, random_state=42, n_jobs=-1
                 )
-                st.pyplot(fig_shap_summary)
-                plt.close(fig_shap_summary)
-
-                # ---- Force Plot (today's explanation) ----
-                st.markdown("#### For today: which factors pushed the decision?")
+                
+                # Create a DataFrame for plotting
+                sorted_idx = perm_importance.importances_mean.argsort()[::-1]
+                # Top 10 features
+                top_10_idx = sorted_idx[:10]
+                
+                importance_df = pd.DataFrame({
+                    'Feature': [feature_columns[i] for i in top_10_idx],
+                    'Importance': perm_importance.importances_mean[top_10_idx]
+                })
+                
+                # Plot bar chart
+                fig_imp, ax = plt.subplots(figsize=(10, 6))
+                sns.barplot(data=importance_df, x='Importance', y='Feature', ax=ax, palette="viridis")
+                ax.set_title("Top 10 Features by Permutation Importance")
+                st.pyplot(fig_imp)
+                plt.close(fig_imp)
+                
+                # B. Partial Dependence Plots (PDP)
+                st.markdown("#### 2. How Top Factors Affect Predictions (PDP)")
                 st.caption(
-                    "Blue areas push towards BUY (price up). "
-                    "Red areas push towards SELL (price down)."
+                    "These plots show the average effect of a feature on the 'BUY' probability. "
+                    "Y-axis = probability change. X-axis = feature value."
                 )
-                try:
-                    plt.clf()
-                    shap.force_plot(
-                        explainer.expected_value,
-                        explainer.shap_values(latest_features_scaled)[0],
-                        latest_features_scaled[0],
-                        feature_names=feature_columns,
-                        matplotlib=True,
-                        show=False,
-                        figsize=(14, 3),
-                    )
-                    fig_force = plt.gcf()
-                    st.pyplot(fig_force, bbox_inches="tight", use_container_width=True)
-                    plt.close(fig_force)
-                except Exception as e:
-                    st.warning(f"Could not show detailed SHAP force plot: {str(e)}")
-
-                # ---- Dependence plots (top 3 factors) ----
-                st.markdown("#### How the top 3 factors affect the model")
-                st.caption(
-                    "Each chart shows how changing that factor changes the model's view about price going up."
-                )
-
-                feature_importance = np.abs(shap_values).mean(axis=0)
-                top_features_idx = np.argsort(feature_importance)[-3:][::-1]
-
+                
+                # We'll plot PDP for the top 3 most important features found above
+                top_3_idx = sorted_idx[:3]
+                
+                # Create a multi-column layout for the 3 plots
                 cols = st.columns(3)
-                for idx, feature_idx in enumerate(top_features_idx):
-                    with cols[idx]:
-                        fig_dep, ax = plt.subplots(figsize=(6, 4))
-                        shap.dependence_plot(
-                            feature_idx,
-                            shap_values,
-                            X_train_scaled[:500],
+                
+                # Use sklearn's PartialDependenceDisplay
+                # We need to loop because we want to render them in Streamlit columns
+                for i, feature_idx in enumerate(top_3_idx):
+                    with cols[i]:
+                        feature_name = feature_columns[feature_idx]
+                        fig_pdp, ax = plt.subplots(figsize=(5, 4))
+                        
+                        PartialDependenceDisplay.from_estimator(
+                            xgb_model, 
+                            X_train_scaled, 
+                            features=[feature_idx],
                             feature_names=feature_columns,
                             ax=ax,
-                            show=False,
+                            line_kw={"color": "orange", "linewidth": 2}
                         )
-                        st.pyplot(fig_dep)
-                        plt.close(fig_dep)
+                        ax.set_title(f"Effect of {feature_name}")
+                        st.pyplot(fig_pdp)
+                        plt.close(fig_pdp)
 
             # 5. MODEL PERFORMANCE METRICS
             st.markdown("---")
@@ -878,7 +873,7 @@ Think of it as a detailed score card:
         st.error(f"❌ An error occurred: {str(e)}")
         st.info(
             "Please ensure all required libraries are installed: "
-            "streamlit, yfinance, prophet, scikit-learn, xgboost, shap, plotly"
+            "streamlit, yfinance, prophet, scikit-learn, xgboost, plotly"
         )
 
 else:
